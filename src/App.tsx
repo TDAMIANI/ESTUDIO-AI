@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import {
   BrainCircuit, MessageSquare, LayoutDashboard, Presentation,
@@ -6,22 +6,11 @@ import {
   AlertCircle, Sparkles, Database,
   TrendingUp, Users, DollarSign, ArrowUpRight, Volume2,
   Bot, BookOpen, Target, Lightbulb, FileCheck, HardDrive,
-  Mic, StopCircle, Zap, Download, Layers
+  Mic, StopCircle, Zap, Download, Layers, Search, Briefcase, Calculator, Compass
 } from 'lucide-react';
-import {
-  XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
-  AreaChart, Area, PieChart, Pie, Cell
-} from 'recharts';
+import { Card, SpeakerNote } from './components/Shared';
 
-// --- DATOS PARA EL DASHBOARD ---
-const monthlyData = [
-  { name: 'Ene', ingresos: 4500000, gastos: 3200000, rentabilidad: 1300000 },
-  { name: 'Feb', ingresos: 5200000, gastos: 3400000, rentabilidad: 1800000 },
-  { name: 'Mar', ingresos: 4800000, gastos: 3100000, rentabilidad: 1700000 },
-  { name: 'Abr', ingresos: 6100000, gastos: 3800000, rentabilidad: 2300000 },
-  { name: 'May', ingresos: 5900000, gastos: 3600000, rentabilidad: 2300000 },
-  { name: 'Jun', ingresos: 7200000, gastos: 4100000, rentabilidad: 3100000 },
-];
+const DashboardSection = React.lazy(() => import('./components/DashboardSection'));
 
 const handleDownloadFile = (filename: string, content: string) => {
   const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -34,92 +23,6 @@ const handleDownloadFile = (filename: string, content: string) => {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
-
-const clientData = [
-  { name: 'Responsables Inscriptos', value: 45 },
-  { name: 'Monotributistas', value: 120 },
-  { name: 'Convenio Multilateral', value: 35 },
-  { name: 'Empleadores', value: 60 },
-];
-
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
-
-// --- COMPONENTES UI REUTILIZABLES ---
-const SpeakerNote = ({ text }: { text: string }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  const handlePlay = () => {
-    if (isPlaying) {
-      window.speechSynthesis.cancel();
-      setIsPlaying(false);
-      return;
-    }
-    setIsPlaying(true);
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'es-AR';
-    utterance.rate = 1.15; // Más rápido para darle dinamismo juvenil
-    utterance.pitch = 1.4; // Tono más alto para hacerla más femenina
-    
-    // Intentar buscar una voz femenina argentina o en español si está disponible
-    const voices = window.speechSynthesis.getVoices();
-    const femaleNames = ['sabina', 'helena', 'laura', 'monica', 'paulina', 'luciana', 'victoria', 'mia', 'sofia'];
-    
-    let selectedVoice = voices.find(v => v.lang === 'es-AR' && femaleNames.some(name => v.name.toLowerCase().includes(name)));
-    
-    if (!selectedVoice) {
-      selectedVoice = voices.find(v => v.lang.startsWith('es') && femaleNames.some(name => v.name.toLowerCase().includes(name)));
-    }
-    
-    if (!selectedVoice) {
-      selectedVoice = voices.find(v => v.lang === 'es-AR' && v.name.includes('Google')) || 
-                      voices.find(v => v.lang === 'es-AR') ||
-                      voices.find(v => v.lang.startsWith('es'));
-    }
-
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-    }
-
-    utterance.onend = () => setIsPlaying(false);
-    window.speechSynthesis.speak(utterance);
-  };
-
-  useEffect(() => {
-    // Cargar voces al inicio para que estén listas
-    window.speechSynthesis.getVoices();
-    return () => window.speechSynthesis.cancel();
-  }, []);
-
-  return (
-    <div className="relative bg-indigo-50/80 p-6 rounded-2xl border border-indigo-100 group hover:border-indigo-300 transition-all shadow-sm mt-8">
-      <div className="flex items-start gap-4">
-        <button
-          onClick={handlePlay}
-          className={`shrink-0 p-4 rounded-full shadow-md border transition-all ${
-            isPlaying 
-              ? 'bg-indigo-600 text-white border-indigo-600 animate-pulse scale-110' 
-              : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-100 hover:scale-105'
-          }`}
-          title="Escuchar nota del speaker"
-        >
-          {isPlaying ? <StopCircle className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
-        </button>
-        <div>
-          <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-wider mb-2 flex items-center gap-1">
-            <Mic className="w-4 h-4" /> Notas del Speaker (Voz Argentina)
-          </span>
-          <p className="text-base text-slate-800 font-medium italic leading-relaxed">"{text}"</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const Card = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
-  <div className={`bg-white rounded-3xl p-8 shadow-xl shadow-slate-200/40 border border-slate-100 ${className}`}>
-    {children}
-  </div>
-);
 
 // --- COMPONENTES DE PESTAÑAS ---
 
@@ -136,14 +39,15 @@ const IntroSection = () => (
         alt="Futuro Contable" 
         className="w-full h-[400px] object-cover"
         referrerPolicy="no-referrer"
+        loading="lazy"
       />
       <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/80 to-transparent flex flex-col justify-center p-12">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/20 text-blue-300 text-sm font-bold mb-6 border border-blue-500/30 backdrop-blur-sm w-fit">
           <Sparkles className="w-4 h-4" />
-          MASTERCLASS EXCLUSIVA
+          11 de marzo | 17 a 19 h
         </div>
         <h1 className="text-5xl md:text-6xl font-extrabold text-white mb-4 leading-tight">
-          El Estudio Contable <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">Impulsado por IA</span>
+          Potencia tu estudio <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">contable con IA</span>
         </h1>
         <p className="text-xl text-slate-300 max-w-2xl leading-relaxed">
           Descubrí cómo integrar Gemini y NotebookLM para automatizar tareas, eliminar errores y transformar los datos en decisiones estratégicas.
@@ -247,6 +151,38 @@ const GeminiSection = () => {
       icon: <Lightbulb className="w-5 h-5" />,
       prompt: "Proporciona 3 ideas de contenido para las redes sociales de un estudio contable, orientadas a captar la atención de nuevos emprendedores y startups.",
       response: "Aquí presento 3 propuestas de contenido orientadas a emprendedores y startups:\n\n1. 📊 **Infografía Educativa:** 'Estructuras Societarias para Startups'. Una comparación visual entre SAS, SA y SRL, destacando ventajas operativas y responsabilidades legales.\n2. 💡 **Carrusel de Buenas Prácticas:** '3 Errores Financieros Comunes al Iniciar un Negocio'. Abordar temas como la mezcla de finanzas personales y comerciales, la falta de previsión impositiva y la incorrecta categorización fiscal.\n3. 📅 **Calendario Fiscal del Emprendedor:** Una publicación destacando las fechas clave del mes para Monotributistas y Responsables Inscriptos, enfatizando la importancia de la planificación anticipada."
+    },
+    {
+      id: 8,
+      title: "Detectar Inconsistencias",
+      description: "Compara datos de diferentes fuentes para encontrar errores de carga.",
+      icon: <Search className="w-5 h-5" />,
+      prompt: "Actúa como un auditor contable. Tengo dos listas de facturas: una del sistema de gestión y otra del extracto bancario. Ayúdame a identificar si falta alguna factura en el sistema o si hay montos que no coinciden.",
+      response: "Como auditor, he analizado las listas proporcionadas y detectado las siguientes inconsistencias:\n\n1. ❌ **Factura Faltante:** La factura N° 001-000456 por $12.500 figura en el banco pero no en el sistema.\n2. ⚠️ **Diferencia de Monto:** La factura N° 001-000489 figura por $8.900 en el sistema, pero el cobro bancario fue de $9.800.\n3. 🔍 **Duplicación:** Se observa un cobro duplicado de $5.000 el día 15/03 que solo tiene una factura asociada.\n\nRecomiendo revisar los comprobantes físicos para realizar los ajustes correspondientes."
+    },
+    {
+      id: 9,
+      title: "Asesoramiento Societario",
+      description: "Explica las diferencias entre tipos de sociedades para nuevos negocios.",
+      icon: <Briefcase className="w-5 h-5" />,
+      prompt: "Un cliente quiere abrir una pequeña fábrica de muebles con un socio. Explicale de forma sencilla las diferencias entre una SRL y una SAS en Argentina.",
+      response: "Hola! Te explico las diferencias clave para tu nueva fábrica de muebles:\n\n*   **SAS (Sociedad por Acciones Simplificada):**\n    *   **Apertura:** Es mucho más rápida y digital. Se puede constituir en 24-48hs.\n    *   **Capital:** El mínimo es equivalente a dos salarios mínimos.\n    *   **Responsabilidad:** Limitada al capital aportado.\n\n*   **SRL (Sociedad de Responsabilidad Limitada):**\n    *   **Apertura:** El trámite es más tradicional y puede demorar varias semanas.\n    *   **Capital:** No tiene un mínimo tan estricto por ley.\n    *   **Responsabilidad:** También limitada, pero la cesión de cuotas es más burocrática.\n\n**Conclusión:** Para empezar rápido y con menos burocracia, la **SAS** suele ser la opción preferida hoy en día."
+    },
+    {
+      id: 10,
+      title: "Cálculo de Retenciones",
+      description: "Calcula retenciones impositivas complejas para pagos a proveedores.",
+      icon: <Calculator className="w-5 h-5" />,
+      prompt: "Calculá la retención de Impuesto a las Ganancias para un pago de $1.500.000 a un profesional independiente (Responsable Inscripto). Considerá que el mínimo no imponible es de $160.000 y la alícuota aplicable es del 2% sobre el excedente.",
+      response: "Cálculo de Retención de Ganancias (Honorarios Profesionales):\n\n1. 💰 **Monto del pago:** $1.500.000\n2. 🛡️ **Mínimo no imponible:** $160.000\n3. 📊 **Base sujeta a retención:** $1.340.000 ($1.500.000 - $160.000)\n4. 📈 **Alícuota aplicable:** 2%\n\n**Monto a retener:** $26.800\n\n*Nota: Recuerde emitir el certificado de retención correspondiente a través del SICORE para entregar al proveedor.*"
+    },
+    {
+      id: 11,
+      title: "Planificación Fiscal",
+      description: "Proyecta escenarios fiscales para optimizar la carga tributaria del cliente.",
+      icon: <Compass className="w-5 h-5" />,
+      prompt: "Un cliente Responsable Inscripto proyecta facturar $50.000.000 este año con un margen de ganancia del 30%. Sugerí 3 estrategias legales de planificación fiscal para diferir o reducir el impacto del Impuesto a las Ganancias.",
+      response: "Estrategias de Planificación Fiscal Sugeridas:\n\n1. 🏢 **Amortización Acelerada:** Si el cliente planea adquirir bienes de uso (maquinaria, rodados), puede optar por regímenes de amortización acelerada vigentes, deduciendo el gasto en menos tiempo y reduciendo la base imponible actual.\n2. 🤝 **Honorarios al Directorio:** Si es una sociedad, la asignación de honorarios a directores (hasta el límite legal del 25% de las utilidades o el monto fijo, el mayor) permite deducir ese gasto de la sociedad, trasladando la carga al individuo (quien puede tener deducciones personales).\n3. ⏳ **Diferimiento de Facturación:** Analizar el devengamiento de las operaciones hacia el final del ejercicio. Si es posible postergar la entrega del bien o la finalización del servicio para el ejercicio siguiente, se difiere el pago del impuesto un año.\n\n*Recomendación: Cada estrategia debe evaluarse con la realidad económica y financiera de la empresa.*"
     }
   ];
 
@@ -269,6 +205,7 @@ const GeminiSection = () => {
           alt="Gemini Assistant" 
           className="w-full h-full object-cover"
           referrerPolicy="no-referrer"
+          loading="lazy"
         />
         <div className="absolute inset-0 bg-blue-900/60 flex items-center justify-between p-8">
           <div>
@@ -355,7 +292,7 @@ const GeminiSection = () => {
               </div>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 relative overflow-hidden rounded-2xl">
-                <img src="https://picsum.photos/seed/ai-assistant-waiting/800/600" alt="Waiting" className="absolute inset-0 w-full h-full object-cover opacity-10" referrerPolicy="no-referrer" />
+                <img src="https://picsum.photos/seed/ai-assistant-waiting/800/600" alt="Waiting" className="absolute inset-0 w-full h-full object-cover opacity-10" referrerPolicy="no-referrer" loading="lazy" />
                 <div className="relative z-10">
                   <Bot className="w-16 h-16 mb-4 text-blue-300 mx-auto" />
                   <p className="text-lg font-medium text-slate-600">Seleccioná un caso de uso de la izquierda</p>
@@ -380,6 +317,7 @@ const NotebookLMSection = () => (
         alt="NotebookLM Documents" 
         className="w-full h-full object-cover"
         referrerPolicy="no-referrer"
+        loading="lazy"
       />
       <div className="absolute inset-0 bg-emerald-900/70 flex items-center justify-between p-8">
         <div>
@@ -521,7 +459,7 @@ const NotebookLMSection = () => (
       </h3>
       <div className="grid md:grid-cols-3 gap-6">
         <Card className="p-0 bg-gradient-to-br from-slate-50 to-white hover:shadow-lg transition-all overflow-hidden group">
-          <img src="https://picsum.photos/seed/tax-law/400/200" alt="Impuestos" className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
+          <img src="https://picsum.photos/seed/tax-law/400/200" alt="Impuestos" className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" loading="lazy" />
           <div className="p-6">
             <BookOpen className="w-8 h-8 text-blue-500 mb-4" />
             <h4 className="font-bold text-lg mb-2">Cuaderno de Impuestos</h4>
@@ -529,7 +467,7 @@ const NotebookLMSection = () => (
           </div>
         </Card>
         <Card className="p-0 bg-gradient-to-br from-slate-50 to-white hover:shadow-lg transition-all overflow-hidden group">
-          <img src="https://picsum.photos/seed/hr-manual/400/200" alt="RRHH" className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
+          <img src="https://picsum.photos/seed/hr-manual/400/200" alt="RRHH" className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" loading="lazy" />
           <div className="p-6">
             <Users className="w-8 h-8 text-emerald-500 mb-4" />
             <h4 className="font-bold text-lg mb-2">Manual del Empleador</h4>
@@ -537,7 +475,7 @@ const NotebookLMSection = () => (
           </div>
         </Card>
         <Card className="p-0 bg-gradient-to-br from-slate-50 to-white hover:shadow-lg transition-all overflow-hidden group">
-          <img src="https://picsum.photos/seed/startup-advice/400/200" alt="Emprendedores" className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
+          <img src="https://picsum.photos/seed/startup-advice/400/200" alt="Emprendedores" className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" loading="lazy" />
           <div className="p-6">
             <Target className="w-8 h-8 text-purple-500 mb-4" />
             <h4 className="font-bold text-lg mb-2">Asesor de Emprendedores</h4>
@@ -569,270 +507,296 @@ const AdditionalToolsSection = () => (
 
     <div className="grid md:grid-cols-2 gap-8">
       {/* II. Procesamiento de Datos */}
-      <Card className="border-t-4 border-t-blue-500 hover:shadow-xl transition-all hover:-translate-y-1 duration-300">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
-            <Database className="w-7 h-7" />
+      <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/40 border border-slate-100 border-t-4 border-t-blue-500 hover:shadow-2xl transition-all hover:-translate-y-1 duration-300 overflow-hidden flex flex-col">
+        <img src="https://picsum.photos/seed/data-ai/600/300" className="w-full h-48 object-cover" alt="Procesamiento de Datos" referrerPolicy="no-referrer" loading="lazy" />
+        <div className="p-8 flex-1 flex flex-col">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+              <Database className="w-7 h-7" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">Procesamiento de Datos</h3>
+              <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider">Google AI Studio</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xl font-bold text-slate-900">Procesamiento de Datos</h3>
-            <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider">Google AI Studio</p>
+          <ul className="space-y-4 mb-8">
+            <li className="flex items-start gap-3">
+              <div className="mt-1 bg-blue-100 p-1 rounded-full shrink-0">
+                <CheckCircle2 className="w-4 h-4 text-blue-600" />
+              </div>
+              <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Visión Artificial:</strong> Lectura automatizada de comprobantes y facturas físicas o en imagen.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <div className="mt-1 bg-blue-100 p-1 rounded-full shrink-0">
+                <CheckCircle2 className="w-4 h-4 text-blue-600" />
+              </div>
+              <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Extracción Estructurada:</strong> Transformación de PDFs escaneados a tablas de Excel/CSV listas para importar al sistema contable.</span>
+            </li>
+          </ul>
+
+          <div className="mt-auto space-y-4">
+            <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+              <p className="text-xs font-bold text-blue-700 uppercase mb-1 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" /> Ejemplo Práctico
+              </p>
+              <p className="text-sm text-slate-600 italic">"Subir 50 fotos de tickets de taxi y pedirle que extraiga Fecha, Comercio y Monto directamente en un archivo CSV."</p>
+            </div>
+            <a 
+              href="https://aistudio.google.com/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
+            >
+              Probar Google AI Studio <ArrowUpRight className="w-4 h-4" />
+            </a>
           </div>
         </div>
-        <ul className="space-y-4">
-          <li className="flex items-start gap-3">
-            <div className="mt-1 bg-blue-100 p-1 rounded-full shrink-0">
-              <CheckCircle2 className="w-4 h-4 text-blue-600" />
-            </div>
-            <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Visión Artificial:</strong> Lectura automatizada de comprobantes y facturas físicas o en imagen.</span>
-          </li>
-          <li className="flex items-start gap-3">
-            <div className="mt-1 bg-blue-100 p-1 rounded-full shrink-0">
-              <CheckCircle2 className="w-4 h-4 text-blue-600" />
-            </div>
-            <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Extracción Estructurada:</strong> Transformación de PDFs escaneados a tablas de Excel/CSV listas para importar al sistema contable.</span>
-          </li>
-          <li className="flex items-start gap-3">
-            <div className="mt-1 bg-blue-100 p-1 rounded-full shrink-0">
-              <CheckCircle2 className="w-4 h-4 text-blue-600" />
-            </div>
-            <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Análisis Masivo:</strong> Procesamiento de grandes volúmenes de datos superando los límites de contexto de los chats tradicionales.</span>
-          </li>
-        </ul>
-      </Card>
+      </div>
 
       {/* III. Personalización */}
-      <Card className="border-t-4 border-t-purple-500 hover:shadow-xl transition-all hover:-translate-y-1 duration-300">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl">
-            <Bot className="w-7 h-7" />
+      <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/40 border border-slate-100 border-t-4 border-t-purple-500 hover:shadow-2xl transition-all hover:-translate-y-1 duration-300 overflow-hidden flex flex-col">
+        <img src="https://picsum.photos/seed/ai-bot/600/300" className="w-full h-48 object-cover" alt="Asistentes Personalizados" referrerPolicy="no-referrer" loading="lazy" />
+        <div className="p-8 flex-1 flex flex-col">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl">
+              <Bot className="w-7 h-7" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">Asistentes Personalizados</h3>
+              <p className="text-sm font-semibold text-purple-600 uppercase tracking-wider">Custom GPTs / Gems</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xl font-bold text-slate-900">Asistentes Personalizados</h3>
-            <p className="text-sm font-semibold text-purple-600 uppercase tracking-wider">Custom GPTs / Gems</p>
+          <ul className="space-y-4 mb-8">
+            <li className="flex items-start gap-3">
+              <div className="mt-1 bg-purple-100 p-1 rounded-full shrink-0">
+                <CheckCircle2 className="w-4 h-4 text-purple-600" />
+              </div>
+              <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Instrucciones de Sistema:</strong> Creación de un asistente que responda exactamente con el tono y las reglas del estudio.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <div className="mt-1 bg-purple-100 p-1 rounded-full shrink-0">
+                <CheckCircle2 className="w-4 h-4 text-purple-600" />
+              </div>
+              <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Entrenamiento Propio:</strong> Carga de manuales de procedimientos internos y escalas de honorarios actualizadas.</span>
+            </li>
+          </ul>
+
+          <div className="mt-auto space-y-4">
+            <div className="bg-purple-50/50 p-4 rounded-2xl border border-purple-100">
+              <p className="text-xs font-bold text-purple-700 uppercase mb-1 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" /> Ejemplo Práctico
+              </p>
+              <p className="text-sm text-slate-600 italic">"Crear un GPT llamado 'Asistente de Honorarios' con el PDF de la escala del Consejo para responder consultas de cotización al instante."</p>
+            </div>
+            <a 
+              href="https://chatgpt.com/gpts" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700 transition-colors shadow-lg shadow-purple-600/20"
+            >
+              Explorar Custom GPTs <ArrowUpRight className="w-4 h-4" />
+            </a>
           </div>
         </div>
-        <ul className="space-y-4">
-          <li className="flex items-start gap-3">
-            <div className="mt-1 bg-purple-100 p-1 rounded-full shrink-0">
-              <CheckCircle2 className="w-4 h-4 text-purple-600" />
-            </div>
-            <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Instrucciones de Sistema:</strong> Creación de un asistente que responda exactamente con el tono y las reglas del estudio.</span>
-          </li>
-          <li className="flex items-start gap-3">
-            <div className="mt-1 bg-purple-100 p-1 rounded-full shrink-0">
-              <CheckCircle2 className="w-4 h-4 text-purple-600" />
-            </div>
-            <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Entrenamiento Propio:</strong> Carga de manuales de procedimientos internos y escalas de honorarios actualizadas.</span>
-          </li>
-          <li className="flex items-start gap-3">
-            <div className="mt-1 bg-purple-100 p-1 rounded-full shrink-0">
-              <CheckCircle2 className="w-4 h-4 text-purple-600" />
-            </div>
-            <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Atención al Cliente:</strong> Automatización de respuestas precisas para las consultas más frecuentes.</span>
-          </li>
-        </ul>
-      </Card>
+      </div>
 
       {/* IV. Planificación */}
-      <Card className="border-t-4 border-t-emerald-500 hover:shadow-xl transition-all hover:-translate-y-1 duration-300">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
-            <Presentation className="w-7 h-7" />
+      <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/40 border border-slate-100 border-t-4 border-t-emerald-500 hover:shadow-2xl transition-all hover:-translate-y-1 duration-300 overflow-hidden flex flex-col">
+        <img src="https://picsum.photos/seed/business-chat/600/300" className="w-full h-48 object-cover" alt="Comunicación Profesional" referrerPolicy="no-referrer" loading="lazy" />
+        <div className="p-8 flex-1 flex flex-col">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+              <Presentation className="w-7 h-7" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">Comunicación Profesional</h3>
+              <p className="text-sm font-semibold text-emerald-600 uppercase tracking-wider">ChatGPT / Claude</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xl font-bold text-slate-900">Comunicación Profesional</h3>
-            <p className="text-sm font-semibold text-emerald-600 uppercase tracking-wider">ChatGPT / Claude</p>
+          <ul className="space-y-4 mb-8">
+            <li className="flex items-start gap-3">
+              <div className="mt-1 bg-emerald-100 p-1 rounded-full shrink-0">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              </div>
+              <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Gestión de Tiempos:</strong> Armado automático de cronogramas de vencimientos y planificación de tareas mensuales.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <div className="mt-1 bg-emerald-100 p-1 rounded-full shrink-0">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              </div>
+              <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Redacción Técnica:</strong> Elaboración de informes de gestión, notas a los estados contables y minutas estructuradas.</span>
+            </li>
+          </ul>
+
+          <div className="mt-auto space-y-4">
+            <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
+              <p className="text-xs font-bold text-emerald-700 uppercase mb-1 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" /> Ejemplo Práctico
+              </p>
+              <p className="text-sm text-slate-600 italic">"Pegar un borrador de acta de asamblea y pedirle que la redacte con lenguaje técnico societario impecable y formal."</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <a 
+                href="https://chatgpt.com/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20"
+              >
+                ChatGPT <ArrowUpRight className="w-3 h-3" />
+              </a>
+              <a 
+                href="https://claude.ai/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 py-3 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-900 transition-colors shadow-lg shadow-slate-800/20"
+              >
+                Claude <ArrowUpRight className="w-3 h-3" />
+              </a>
+            </div>
           </div>
         </div>
-        <ul className="space-y-4">
-          <li className="flex items-start gap-3">
-            <div className="mt-1 bg-emerald-100 p-1 rounded-full shrink-0">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            </div>
-            <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Gestión de Tiempos:</strong> Armado automático de cronogramas de vencimientos y planificación de tareas mensuales.</span>
-          </li>
-          <li className="flex items-start gap-3">
-            <div className="mt-1 bg-emerald-100 p-1 rounded-full shrink-0">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            </div>
-            <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Redacción Técnica:</strong> Elaboración de informes de gestión, notas a los estados contables y minutas estructuradas.</span>
-          </li>
-          <li className="flex items-start gap-3">
-            <div className="mt-1 bg-emerald-100 p-1 rounded-full shrink-0">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            </div>
-            <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Traducción de Jerga:</strong> Adaptación de lenguaje técnico contable a explicaciones simples para el cliente final.</span>
-          </li>
-        </ul>
-      </Card>
+      </div>
 
       {/* V. Seguridad */}
-      <Card className="border-t-4 border-t-red-500 hover:shadow-xl transition-all hover:-translate-y-1 duration-300">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="p-3 bg-red-50 text-red-600 rounded-2xl">
-            <AlertCircle className="w-7 h-7" />
+      <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/40 border border-slate-100 border-t-4 border-t-red-500 hover:shadow-2xl transition-all hover:-translate-y-1 duration-300 overflow-hidden flex flex-col">
+        <img src="https://picsum.photos/seed/cyber-security/600/300" className="w-full h-48 object-cover" alt="Seguridad y Ética" referrerPolicy="no-referrer" loading="lazy" />
+        <div className="p-8 flex-1 flex flex-col">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="p-3 bg-red-50 text-red-600 rounded-2xl">
+              <AlertCircle className="w-7 h-7" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">Seguridad y Ética</h3>
+              <p className="text-sm font-semibold text-red-600 uppercase tracking-wider">Protección de Datos</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xl font-bold text-slate-900">Seguridad y Ética</h3>
-            <p className="text-sm font-semibold text-red-600 uppercase tracking-wider">Protección de Datos</p>
+          <ul className="space-y-4 mb-8">
+            <li className="flex items-start gap-3">
+              <div className="mt-1 bg-red-100 p-1 rounded-full shrink-0">
+                <CheckCircle2 className="w-4 h-4 text-red-600" />
+              </div>
+              <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Configuración de Privacidad:</strong> Desactivar el uso de nuestros datos para el entrenamiento de los modelos públicos.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <div className="mt-1 bg-red-100 p-1 rounded-full shrink-0">
+                <CheckCircle2 className="w-4 h-4 text-red-600" />
+              </div>
+              <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Anonimización:</strong> Tratamiento adecuado de datos sensibles antes de enviarlos a la IA.</span>
+            </li>
+          </ul>
+
+          <div className="mt-auto space-y-4">
+            <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100">
+              <p className="text-xs font-bold text-red-700 uppercase mb-1 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" /> Ejemplo Práctico
+              </p>
+              <p className="text-sm text-slate-600 italic">"Configurar ChatGPT en 'Settings &gt; Data Controls' para que no guarde historial ni use tus datos para entrenar el modelo."</p>
+            </div>
+            <a 
+              href="https://safety.google/principles/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-600/20"
+            >
+              Principios de Seguridad <ArrowUpRight className="w-4 h-4" />
+            </a>
           </div>
         </div>
-        <ul className="space-y-4">
-          <li className="flex items-start gap-3">
-            <div className="mt-1 bg-red-100 p-1 rounded-full shrink-0">
-              <CheckCircle2 className="w-4 h-4 text-red-600" />
-            </div>
-            <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Configuración de Privacidad:</strong> Desactivar el uso de nuestros datos para el entrenamiento de los modelos públicos.</span>
-          </li>
-          <li className="flex items-start gap-3">
-            <div className="mt-1 bg-red-100 p-1 rounded-full shrink-0">
-              <CheckCircle2 className="w-4 h-4 text-red-600" />
-            </div>
-            <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Anonimización:</strong> Tratamiento adecuado de datos sensibles (nombres, CUITs, montos) antes de enviarlos a la IA.</span>
-          </li>
-          <li className="flex items-start gap-3">
-            <div className="mt-1 bg-red-100 p-1 rounded-full shrink-0">
-              <CheckCircle2 className="w-4 h-4 text-red-600" />
-            </div>
-            <span className="text-slate-700 leading-relaxed"><strong className="text-slate-900">Validación Humana:</strong> Prevención de "alucinaciones" mediante la revisión obligatoria de normativas y cálculos.</span>
-          </li>
-        </ul>
-      </Card>
+      </div>
     </div>
 
     <SpeakerNote text="Para escalar el uso de IA en el estudio, debemos ir más allá del chat básico. Google AI Studio nos permite procesar miles de facturas en segundos. Los Custom GPTs actúan como asistentes entrenados con nuestros propios manuales. Y, por supuesto, todo esto debe estar enmarcado en estrictas políticas de privacidad y anonimización de datos de nuestros clientes." />
   </motion.div>
 );
 
-const DashboardSection = () => (
+const AIToolsForAccountantsSection = () => (
   <motion.div 
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.5 }}
-    className="space-y-8"
+    className="space-y-12"
   >
-    <div className="relative rounded-3xl overflow-hidden shadow-lg h-48 mb-8">
-      <img 
-        src="https://picsum.photos/seed/data-dashboard-analytics/1200/300" 
-        alt="Data Analytics" 
-        className="w-full h-full object-cover"
-        referrerPolicy="no-referrer"
-      />
-      <div className="absolute inset-0 bg-amber-900/70 flex items-center justify-between p-8">
-        <div>
-          <h2 className="text-4xl font-extrabold text-white flex items-center gap-3 mb-2">
-            <div className="p-2 bg-amber-500 text-white rounded-xl shadow-lg">
-              <LayoutDashboard className="w-8 h-8" />
-            </div>
-            De Datos a Decisiones
-          </h2>
-          <p className="text-amber-100 text-lg">Cómo Gemini Advanced transforma tus Excels en Dashboards visuales.</p>
-        </div>
-      </div>
+    <div className="text-center max-w-3xl mx-auto mb-12">
+      <h2 className="text-4xl font-extrabold text-slate-900 mb-4">
+        Herramientas de IA para Contadores
+      </h2>
+      <p className="text-xl text-slate-600">
+        Una selección de las mejores herramientas de Inteligencia Artificial diseñadas para optimizar el trabajo contable, financiero y fiscal.
+      </p>
     </div>
 
-    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 flex items-start gap-4">
-      <Lightbulb className="w-8 h-8 text-amber-600 shrink-0 mt-1" />
-      <div>
-        <h4 className="font-bold text-amber-900 text-lg">El poder del Análisis de Datos con IA</h4>
-        <p className="text-amber-800 mt-1">
-          No necesitas ser un experto en PowerBI. Podés subir un archivo Excel o CSV a Gemini Advanced y pedirle: <em>"Analizá esta facturación, creá gráficos de tendencia y decime qué mes fue el más rentable y por qué."</em> El resultado es similar a lo que ves abajo.
+    <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-6">
+      {/* Herramienta 1 */}
+      <Card className="hover:shadow-xl transition-all border-t-4 border-t-blue-500 flex flex-col">
+        <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl w-14 h-14 flex items-center justify-center mb-4">
+          <MessageSquare className="w-7 h-7" />
+        </div>
+        <h3 className="text-xl font-bold text-slate-900 mb-2">ChatGPT & Claude</h3>
+        <p className="text-slate-600 mb-6 flex-1 text-sm">
+          Ideales para la redacción de informes, análisis rápido de normativas, traducción de textos técnicos y mejora en la comunicación con clientes.
         </p>
-      </div>
-    </div>
-
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-slate-500 font-medium">Ingresos Totales (Semestre)</h3>
-          <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><DollarSign className="w-5 h-5" /></div>
+        <div className="flex gap-2 mt-auto">
+          <a href="https://chatgpt.com" target="_blank" rel="noopener noreferrer" className="flex-1 text-center py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-semibold transition-colors">ChatGPT</a>
+          <a href="https://claude.ai" target="_blank" rel="noopener noreferrer" className="flex-1 text-center py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-semibold transition-colors">Claude</a>
         </div>
-        <p className="text-3xl font-bold text-slate-900">$33.7M</p>
-        <p className="text-sm text-emerald-600 flex items-center gap-1 mt-2 font-medium">
-          <TrendingUp className="w-4 h-4" /> +12% vs semestre anterior
+      </Card>
+
+      {/* Herramienta 2 */}
+      <Card className="hover:shadow-xl transition-all border-t-4 border-t-emerald-500 flex flex-col">
+        <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl w-14 h-14 flex items-center justify-center mb-4">
+          <BrainCircuit className="w-7 h-7" />
+        </div>
+        <h3 className="text-xl font-bold text-slate-900 mb-2">NotebookLM</h3>
+        <p className="text-slate-600 mb-6 flex-1 text-sm">
+          Tu socio auditor. Permite subir leyes, balances y manuales propios para hacer consultas precisas sin riesgo de alucinaciones.
         </p>
+        <a href="https://notebooklm.google.com" target="_blank" rel="noopener noreferrer" className="mt-auto block text-center py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-sm font-semibold transition-colors">
+          Probar NotebookLM
+        </a>
       </Card>
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-slate-500 font-medium">Rentabilidad Promedio</h3>
-          <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><TrendingUp className="w-5 h-5" /></div>
+
+      {/* Herramienta 3 */}
+      <Card className="hover:shadow-xl transition-all border-t-4 border-t-purple-500 flex flex-col">
+        <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl w-14 h-14 flex items-center justify-center mb-4">
+          <Database className="w-7 h-7" />
         </div>
-        <p className="text-3xl font-bold text-slate-900">36.5%</p>
-        <p className="text-sm text-blue-600 flex items-center gap-1 mt-2 font-medium">
-          <TrendingUp className="w-4 h-4" /> +2.4% vs semestre anterior
+        <h3 className="text-xl font-bold text-slate-900 mb-2">Google AI Studio</h3>
+        <p className="text-slate-600 mb-6 flex-1 text-sm">
+          Excelente para procesamiento de datos masivos y extracción estructurada de información desde facturas o recibos escaneados.
         </p>
+        <a href="https://aistudio.google.com" target="_blank" rel="noopener noreferrer" className="mt-auto block text-center py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-sm font-semibold transition-colors">
+          Explorar AI Studio
+        </a>
       </Card>
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-slate-500 font-medium">Clientes Activos</h3>
-          <div className="p-2 bg-purple-100 text-purple-600 rounded-lg"><Users className="w-5 h-5" /></div>
+
+      {/* Herramienta 4 */}
+      <Card className="hover:shadow-xl transition-all border-t-4 border-t-amber-500 flex flex-col">
+        <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl w-14 h-14 flex items-center justify-center mb-4">
+          <LayoutDashboard className="w-7 h-7" />
         </div>
-        <p className="text-3xl font-bold text-slate-900">260</p>
-        <p className="text-sm text-slate-500 mt-2">Distribuidos en 4 categorías</p>
+        <h3 className="text-xl font-bold text-slate-900 mb-2">Microsoft Copilot</h3>
+        <p className="text-slate-600 mb-6 flex-1 text-sm">
+          Integración directa con Excel y el ecosistema Office. Ideal para análisis de datos financieros complejos y automatización de hojas de cálculo.
+        </p>
+        <a href="https://copilot.microsoft.com" target="_blank" rel="noopener noreferrer" className="mt-auto block text-center py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-sm font-semibold transition-colors">
+          Ver Copilot
+        </a>
+      </Card>
+
+      {/* Herramienta 5 */}
+      <Card className="hover:shadow-xl transition-all border-t-4 border-t-rose-500 flex flex-col">
+        <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl w-14 h-14 flex items-center justify-center mb-4">
+          <FileCheck className="w-7 h-7" />
+        </div>
+        <h3 className="text-xl font-bold text-slate-900 mb-2">Odoo</h3>
+        <p className="text-slate-600 mb-6 flex-1 text-sm">
+          ERP integral con funciones de automatización e Inteligencia Artificial para la conciliación bancaria, gestión de facturas y contabilidad en tiempo real.
+        </p>
+        <a href="https://www.odoo.com" target="_blank" rel="noopener noreferrer" className="mt-auto block text-center py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-sm font-semibold transition-colors">
+          Descubrir Odoo
+        </a>
       </Card>
     </div>
-
-    <div className="grid lg:grid-cols-2 gap-8">
-      <Card>
-        <h3 className="text-lg font-bold text-slate-900 mb-6">Evolución Financiera</h3>
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorIngresos" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                </linearGradient>
-                <linearGradient id="colorGastos" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b'}} />
-              <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b'}} tickFormatter={(value) => `$${value/1000000}M`} />
-              <RechartsTooltip 
-                formatter={(value: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(value)}
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
-              />
-              <Legend iconType="circle" />
-              <Area type="monotone" dataKey="ingresos" name="Ingresos" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorIngresos)" />
-              <Area type="monotone" dataKey="gastos" name="Gastos" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorGastos)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
-
-      <Card>
-        <h3 className="text-lg font-bold text-slate-900 mb-6">Distribución de Clientes</h3>
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={clientData}
-                cx="50%"
-                cy="50%"
-                innerRadius={80}
-                outerRadius={110}
-                paddingAngle={5}
-                dataKey="value"
-              >
-                {clientData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <RechartsTooltip 
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
-              />
-              <Legend layout="vertical" verticalAlign="middle" align="right" iconType="circle" />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
-    </div>
-
-      <SpeakerNote text="Finalmente, la visualización de datos. Herramientas como Gemini Advanced nos permiten transformar planillas de cálculo complejas en dashboards interactivos en cuestión de segundos. Esto nos facilita la presentación de informes gerenciales y nos posiciona como asesores estratégicos ante nuestros clientes, aportando claridad visual a los números." />
   </motion.div>
 );
 
@@ -883,6 +847,7 @@ function App() {
     { id: 'gemini', label: 'Gemini', icon: Bot },
     { id: 'notebooklm', label: 'NotebookLM', icon: BrainCircuit },
     { id: 'ecosistema', label: 'Ecosistema IA', icon: Layers },
+    { id: 'tools', label: 'Herramientas', icon: Zap },
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'cierre', label: 'Cierre', icon: Target },
   ];
@@ -896,9 +861,9 @@ function App() {
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
               <Sparkles className="w-6 h-6 text-white" />
             </div>
-            <h1 className="text-xl font-extrabold tracking-tight">IA Contable</h1>
+            <h1 className="text-lg font-extrabold tracking-tight leading-tight">Potencia tu estudio</h1>
           </div>
-          <p className="text-xs text-slate-500 font-medium tracking-wider uppercase ml-13">Masterclass</p>
+          <p className="text-xs text-slate-500 font-medium tracking-wider uppercase ml-13">contable con IA</p>
         </div>
 
         <nav className="flex-1 px-4 space-y-2 mt-4">
@@ -938,12 +903,15 @@ function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 ml-72 p-10 lg:p-16 max-w-7xl">
-        {activeTab === 'intro' && <IntroSection />}
-        {activeTab === 'gemini' && <GeminiSection />}
-        {activeTab === 'notebooklm' && <NotebookLMSection />}
-        {activeTab === 'ecosistema' && <AdditionalToolsSection />}
-        {activeTab === 'dashboard' && <DashboardSection />}
-        {activeTab === 'cierre' && <CierreSection />}
+        <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+          {activeTab === 'intro' && <IntroSection />}
+          {activeTab === 'gemini' && <GeminiSection />}
+          {activeTab === 'notebooklm' && <NotebookLMSection />}
+          {activeTab === 'ecosistema' && <AdditionalToolsSection />}
+          {activeTab === 'tools' && <AIToolsForAccountantsSection />}
+          {activeTab === 'dashboard' && <DashboardSection />}
+          {activeTab === 'cierre' && <CierreSection />}
+        </Suspense>
       </main>
     </div>
   );
